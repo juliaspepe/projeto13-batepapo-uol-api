@@ -21,9 +21,7 @@ const db = mongoClient.db("uol")
 
 app.post('/participants', async (req, res) => {
     const { name } = req.body;
-    const userSchema = joi.object({
-        name: joi.string()
-    });
+    const userSchema = joi.object({ name: joi.string() });
 
     try {
         const userExists = await db.collection('participants').findOne({ name: name })
@@ -41,9 +39,9 @@ app.post('/participants', async (req, res) => {
 
         const saveMessage = {
             from: name,
-            to: 'Todos', 
-            text: 'entra na sala...', 
-            type: 'status', 
+            to: 'Todos',
+            text: 'entra na sala...',
+            type: 'status',
             time: day
         }
 
@@ -59,6 +57,14 @@ app.post('/participants', async (req, res) => {
 
 })
 
+app.get('/participants', async (req, res) => {
+    try {
+        const participantsUol = await db.collection('participants').find().toArray()
+        res.send(participantsUol)
+    } catch (err) {
+        console.log(err)
+    }
+});
 
 
 app.listen(process.env.PORT, () => {
