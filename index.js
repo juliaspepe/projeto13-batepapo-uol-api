@@ -55,7 +55,7 @@ app.post('/participants', async (req, res) => {
         res.sendStatus(500)
     }
 
-})
+});
 
 app.get('/participants', async (req, res) => {
     try {
@@ -65,6 +65,49 @@ app.get('/participants', async (req, res) => {
         console.log(err)
     }
 });
+
+app.post('/messages', async (req, res) => {
+    const { to, text, type } = req.body
+    const { user } = req.headers
+    console.log("user:", user)
+    const userSchema = joi.object({
+        from: joi.required(),
+        to: joi.string().required(),
+        text: joi.string().required(),
+        type: joi.valid("message", "private_message").required(),
+        time: joi.required()
+    });
+
+    const day = dayjs().format('HH:mm:ss');
+
+    const sendMessage = {
+        from: user,
+        to: to,
+        text: text,
+        type: type,
+        time: day
+    }
+
+    try {
+        const userExists = await db.collection('participants').findOne( { name: user })
+        console.log("userExists:", userExists)
+        if (userExists) {
+            
+            const validation = userSchema.validate(sendMessage, { abortEarly: true });
+
+            if (validation.error) {
+                return res.status(422).send(validation.error.details)
+            }
+
+            return res.sendStatus(201)
+        }
+
+    } catch (err) {
+        console.log(err)
+    }
+});
+
+
 
 
 app.listen(process.env.PORT, () => {
