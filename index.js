@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { MongoClient } from "mongodb";
 import joi from "joi";
 import dayjs from "dayjs";
+import { ObjectID } from "bson";
 
 const app = express();
 dotenv.config();
@@ -22,6 +23,8 @@ const db = mongoClient.db("uol")
 app.post('/participants', async (req, res) => {
     const { name } = req.body;
     const userSchema = joi.object({ name: joi.string() });
+    const day = dayjs().format('HH:mm:ss');
+
 
     try {
         const userExists = await db.collection('participants').findOne({ name: name })
@@ -34,8 +37,6 @@ app.post('/participants', async (req, res) => {
         if (validation.error) {
             return res.status(422).send(validation.error.details)
         }
-
-        const day = dayjs().format('HH:mm:ss');
 
         const saveMessage = {
             from: name,
@@ -69,7 +70,6 @@ app.get('/participants', async (req, res) => {
 app.post('/messages', async (req, res) => {
     const { to, text, type } = req.body
     const { user } = req.headers
-    console.log("user:", user)
     const userSchema = joi.object({
         from: joi.required(),
         to: joi.string().required(),
@@ -89,10 +89,9 @@ app.post('/messages', async (req, res) => {
     }
 
     try {
-        const userExists = await db.collection('participants').findOne( { name: user })
-        console.log("userExists:", userExists)
+        const userExists = await db.collection('participants').findOne({ name: user })
         if (userExists) {
-            
+
             const validation = userSchema.validate(sendMessage, { abortEarly: true });
 
             if (validation.error) {
@@ -107,8 +106,53 @@ app.post('/messages', async (req, res) => {
     }
 });
 
+app.get('/messages', async (req, res) => {
 
+    const { limit } = req.query;
+    const { user } = req.headers;
+    let userOnline = [];
 
+    const messagesUol = await db.collection('messages').find().toArray()
+    userOnline = messagesUol.filter((m) => m.from === user || m.to === user || m.to === "Todos")
+    console.log("userOnline:", userOnline)
+
+    if (userOnline) {
+        try {
+            if (limit) {
+                const messagesSend = userOnline.slice(-limit)
+                res.send(messagesSend)
+            } else {
+                const messagesSend = userOnline.slice(-100)
+                res.send(messagesSend)
+            }
+        } catch (err) {
+            res.send(err)
+        }
+    }
+
+});
+
+app.post('/status', async (req, res) => {
+    
+    const { user } = req.headers
+    const day = dayjs().format('HH:mm:ss');
+
+    try {
+        const findUser = await db.collection('participants').findOne({ name: user })
+
+        if (findUser) {
+            const updateStatus = await db.collection('participants').updateOne({ _id: findUser._id }, { $set: { lastStatus: day } })
+            console.log("updateStatus:", updateStatus)
+            res.send.status(200)
+            return
+        } else {
+            res.send.status(404)
+            return
+        }
+    } catch (err) {
+        res.send(err)
+    }
+});
 
 app.listen(process.env.PORT, () => {
     console.log(`Server running in port: ${process.env.PORT}`)
