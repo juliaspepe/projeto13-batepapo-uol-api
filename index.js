@@ -4,10 +4,13 @@ import { MongoClient } from "mongodb";
 import joi from "joi";
 import dayjs from "dayjs";
 import { ObjectId, ObjectID } from "bson";
+import cors from "cors";
+
 
 const app = express()
 dotenv.config()
 app.use(express.json())
+app.use(cors());
 
 const mongoClient = new MongoClient(process.env.MONGO_URI)
 
@@ -152,7 +155,7 @@ app.post('/status', async (req, res) => {
     } catch (err) {
         res.send(err)
     }
-});
+}); 
 
 async function userOffline() {
     const findUser = await db.collection('participants').find().toArray()
