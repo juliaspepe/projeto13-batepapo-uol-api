@@ -3,16 +3,16 @@ import dotenv from "dotenv";
 import { MongoClient } from "mongodb";
 import joi from "joi";
 import dayjs from "dayjs";
-import { ObjectID } from "bson";
+import { ObjectId, ObjectID } from "bson";
 
-const app = express();
-dotenv.config();
+const app = express()
+dotenv.config()
 app.use(express.json())
 
 const mongoClient = new MongoClient(process.env.MONGO_URI)
 
 try {
-    await mongoClient.connect();
+    await mongoClient.connect()
     console.log("mongo db conectado")
 } catch (err) {
     console.log(err)
@@ -21,9 +21,9 @@ try {
 const db = mongoClient.db("uol")
 
 app.post('/participants', async (req, res) => {
-    const { name } = req.body;
-    const userSchema = joi.object({ name: joi.string() });
-    const day = dayjs().format('HH:mm:ss');
+    const { name } = req.body
+    const userSchema = joi.object({ name: joi.string() })
+    const day = dayjs().format('HH:mm:ss')
 
 
     try {
@@ -32,7 +32,7 @@ app.post('/participants', async (req, res) => {
             return res.status(409).send({ message: "usuário já existe" })
         }
 
-        const validation = userSchema.validate({ name }, { abortEarly: false });
+        const validation = userSchema.validate({ name }, { abortEarly: false })
 
         if (validation.error) {
             return res.status(422).send(validation.error.details)
@@ -78,7 +78,7 @@ app.post('/messages', async (req, res) => {
         time: joi.required()
     });
 
-    const day = dayjs().format('HH:mm:ss');
+    const day = dayjs().format('HH:mm:ss')
 
     const sendMessage = {
         from: user,
@@ -92,7 +92,7 @@ app.post('/messages', async (req, res) => {
         const userExists = await db.collection('participants').findOne({ name: user })
         if (userExists) {
 
-            const validation = userSchema.validate(sendMessage, { abortEarly: true });
+            const validation = userSchema.validate(sendMessage, { abortEarly: true })
 
             if (validation.error) {
                 return res.status(422).send(validation.error.details)
@@ -108,9 +108,9 @@ app.post('/messages', async (req, res) => {
 
 app.get('/messages', async (req, res) => {
 
-    const { limit } = req.query;
-    const { user } = req.headers;
-    let userOnline = [];
+    const { limit } = req.query
+    const { user } = req.headers
+    let userOnline = []
 
     const messagesUol = await db.collection('messages').find().toArray()
     userOnline = messagesUol.filter((m) => m.from === user || m.to === user || m.to === "Todos")
@@ -133,9 +133,9 @@ app.get('/messages', async (req, res) => {
 });
 
 app.post('/status', async (req, res) => {
-    
+
     const { user } = req.headers
-    const day = dayjs().format('HH:mm:ss');
+    const day = dayjs().format('HH:mm:ss')
 
     try {
         const findUser = await db.collection('participants').findOne({ name: user })
@@ -153,6 +153,30 @@ app.post('/status', async (req, res) => {
         res.send(err)
     }
 });
+
+async function userOffline() {
+    const findUser = await db.collection('participants').find().toArray()
+    const timeInSeconds = Date.now() / 1000
+    const day = dayjs().format('HH:mm:ss')
+
+    const filterTime = findUser.filter((userTime) => {
+        (((userTime.lastStatus) / 1000) - timeInSeconds) > 10
+    })
+
+    filterTime.map((user) => {
+        db.collection('messages').insertOne({
+            from: user.name,
+            to: 'Todos',
+            text: 'saiu da sala...',
+            type: 'status',
+            time: day
+        })
+        
+        db.collection('participants').deleteOne({ name: user.name })
+
+})};
+
+setInterval(userOffline, 15000);
 
 app.listen(process.env.PORT, () => {
     console.log(`Server running in port: ${process.env.PORT}`)
